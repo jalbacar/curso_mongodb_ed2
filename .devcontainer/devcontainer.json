@@ -1,13 +1,17 @@
 {
-  "name": "mongo-admin-labs",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "name": "MongoDB Admin Lab",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu", 
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:1": {}
+  },
   "customizations": {
     "vscode": {
       "extensions": [
-        "ms-azuretools.vscode-docker"
+        "mongodb.mongodb-vscode", // Extensión oficial de Mongo
+        "ms-azuretools.vscode-docker" // Para gestionar los nodos visualmente
       ]
     }
   },
-  "postStartCommand": "docker compose up -d && docker compose ps && docker compose logs --no-color --tail 200 init-rs || true",
+  "postCreateCommand": "bash .devcontainer/setup-cluster.sh",
   "forwardPorts": [27017, 27018, 27019]
 }
