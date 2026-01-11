@@ -1,54 +1,74 @@
 const replSetName = "rs0";
 
-const cfg = {
-  _id: replSetName,
-  members: [
-    { _id: 0, host: "mongo1:27017" },
-    { _id: 1, host: "mongo2:27018" },
-    { _id: 2, host: "mongo3:27019" }
-  ]
-};
+const desiredMembers = [
+  { _id: 0, host: "mongo1:27017", priority: 2 },
+  { _id: 1, host: "mongo2:27018", priority: 1 },
+  { _id: 2, host: "mongo3:27019", priority: 1 }
+];
 
 function waitForAnyPrimary(timeoutSeconds) {
   const deadline = Date.now() + timeoutSeconds * 1000;
-
   while (Date.now() < deadline) {
     try {
-      const st = db.adminCommand({ replSetGetStatus: 1 }); // replSetGetStatus
+      const st = db.adminCommand({ replSetGetStatus: 1 });
       const primary = st.members.find(m => m.stateStr === "PRIMARY");
       if (primary) {
         print("PRIMARY elected:", primary.name);
         return true;
       }
-    } catch (e) {
-      // Not ready yet (startup / init race). Keep waiting.
-    }
+    } catch (e) {}
     sleep(1000);
   }
   return false;
 }
 
-// 1) Idempotent init
-try {
-  const st = db.adminCommand({ replSetGetStatus: 1 });
-  print("Replica set already initialized. Current set:", st.set);
-} catch (e) {
-  print("Replica set not initialized yet. Running rs.initiate()...");
-  try {
-    rs.initiate(cfg);
-  } catch (e2) {
-    const msg = (e2 && e2.message) ? e2.message : String(e2);
-    if (!msg.includes("AlreadyInitialized") && !msg.includes("already initialized")) {
-      throw e2;
-    }
-    print("Replica set was initialized by another attempt. Continuing...");
-  }
+function sameTopologyAndPriority(currentCfg) {
+  const cur = (currentCfg.members || []).map(m => ({
+    _id: m._id,
+    host: m.host,
+    priority: (m.priority === undefined ? 1 : m.priority)
+  })).sort((a,b) => a._id - b._id);
+
+  const des = desiredMembers
+    .map(m => ({ _id: m._id, host: m.host, priority: m.priority }))
+    .sort((a,b) => a._id - b._id);
+
+  return JSON.stringify(cur) === JSON.stringify(des);
 }
 
-// 2) Wait for election to settle (any node can become PRIMARY)
-print("Waiting for a PRIMARY in the set...");
-if (!waitForAnyPrimary(90)) {
-  print("WARNING: Timed out waiting for PRIMARY; showing rs.status() for debugging");
+// 1) Ensure initiated (idempotente)
+try {
+  db.adminCommand({ replSetGetStatus: 1 });
+  print("Replica set already initialized.");
+} catch (e) {
+  print("Replica set not initialized yet. Running rs.initiate()...");
+  rs.initiate({ _id: replSetName, members: desiredMembers });
+}
+
+print("Waiting for a PRIMARY...");
+waitForAnyPrimary(120);
+
+// 2) Reconfig idempotente (solo si difiere)
+try {
+  const cfg = rs.conf();
+  if (!sameTopologyAndPriority(cfg)) {
+    print("Applying rs.reconfig() to set priorities/topology...");
+    cfg.members.forEach(m => {
+      const desired = desiredMembers.find(d => d._id === m._id);
+      if (desired) {
+        m.host = desired.host;
+        m.priority = desired.priority;
+      }
+    });
+    rs.reconfig(cfg);
+    print("Reconfig applied. Waiting for PRIMARY again...");
+    waitForAnyPrimary(180);
+  } else {
+    print("Config already matches desired topology/priority. No reconfig needed.");
+  }
+} catch (e) {
+  print("WARNING: rs.reconfig() failed (often because not on PRIMARY at that instant).");
+  print("Reason:", e);
 }
 
 printjson(rs.status());

@@ -6,6 +6,12 @@ services:
       - "${MONGO1_PORT}:27017"
     volumes:
       - mongo1_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --host localhost --port 27017 --eval \"db.adminCommand({ ping: 1 }).ok\" | grep 1 >/dev/null"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
 
   mongo2:
     image: mongo:7
@@ -14,6 +20,12 @@ services:
       - "${MONGO2_PORT}:27018"
     volumes:
       - mongo2_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --host localhost --port 27018 --eval \"db.adminCommand({ ping: 1 }).ok\" | grep 1 >/dev/null"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
 
   mongo3:
     image: mongo:7
@@ -22,10 +34,22 @@ services:
       - "${MONGO3_PORT}:27019"
     volumes:
       - mongo3_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --host localhost --port 27019 --eval \"db.adminCommand({ ping: 1 }).ok\" | grep 1 >/dev/null"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
 
   init-rs:
     image: mongo:7
-    depends_on: [mongo1, mongo2, mongo3]
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
     restart: "no"
     volumes:
       - ./scripts/rs-init.js:/rs-init.js:ro
