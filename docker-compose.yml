@@ -51,9 +51,13 @@ services:
       mongo3:
         condition: service_healthy
     restart: "no"
-    volumes:
-      - ./scripts/rs-init.js:/rs-init.js:ro
-    command: ["mongosh","--host","mongo1:27017","/rs-init.js"]
+    command: >
+      mongosh --host mongo1:27017 --eval
+      'rs.initiate({_id:"rs0",members:[
+        {_id:0,host:"mongo1:27017",priority:2},
+        {_id:1,host:"mongo2:27018",priority:1},
+        {_id:2,host:"mongo3:27019",priority:1}
+      ]})'
 
 volumes:
   mongo1_data:
