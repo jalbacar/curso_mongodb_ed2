@@ -1,6 +1,16 @@
 {
   "name": "mongo-admin-labs",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
-  "postStartCommand": "docker compose up -d && docker compose ps",
-  "forwardPorts": [27017, 27018, 27019]
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "postStartCommand": "test -f .env || cp .env.example .env; docker compose up -d && docker compose ps",
+  "forwardPorts": [27017, 27018, 27019],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
 }
