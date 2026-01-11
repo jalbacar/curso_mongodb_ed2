@@ -6,8 +6,21 @@
       "version": "24.0.9",
       "dockerDashComposeVersion": "v2",
       "installDockerBuildx": false
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12",
+      "installTools": true
     }
   },
+  "postCreateCommand": "python -m pip install --upgrade pip && python -m pip install pymongo",
   "postStartCommand": "test -f .env || cp .env.example .env; docker compose up -d && docker compose ps",
-  "forwardPorts": [27017, 27018, 27019]
+  "forwardPorts": [27017, 27018, 27019],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
 }

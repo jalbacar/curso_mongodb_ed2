@@ -53,8 +53,7 @@ services:
     restart: "no"
     volumes:
       - ./scripts/rs-init.js:/rs-init.js:ro
-    command: >
-      mongosh --host mongo1:27017 /rs-init.js
+    command: ["mongosh","--host","mongo1:27017","/rs-init.js"]
 
 volumes:
   mongo1_data:
